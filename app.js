@@ -130,6 +130,7 @@ function createStudentSheet(studentName, observations) {
             <div class="observation-item-actions sheet-action">
                 <button type="button" class="btn-secondary btn-compact" data-action="save-note" data-observation-id="${obs.id}">Save note</button>
                 <button type="button" class="btn-secondary btn-compact" data-action="duplicate-note" data-observation-id="${obs.id}">Duplicate note</button>
+                <button type="button" class="btn-danger btn-compact" data-action="delete-note" data-observation-id="${obs.id}">Delete note</button>
             </div>
         </div>
     `
@@ -343,6 +344,16 @@ function duplicateObservationById(id) {
     displayProgressSheets();
 }
 
+function deleteObservationById(id) {
+    if (!confirm('Delete this note? This cannot be undone.')) {
+        return;
+    }
+    const numId = Number(id);
+    const observations = loadObservations().filter((o) => o.id !== numId);
+    saveObservations(observations);
+    updateStudentFilter();
+}
+
 document.getElementById('progress-sheets').addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
@@ -367,6 +378,11 @@ document.getElementById('progress-sheets').addEventListener('click', (e) => {
     if (t.getAttribute('data-action') === 'duplicate-note') {
         const id = t.getAttribute('data-observation-id');
         if (id) duplicateObservationById(id);
+        return;
+    }
+    if (t.getAttribute('data-action') === 'delete-note') {
+        const id = t.getAttribute('data-observation-id');
+        if (id) deleteObservationById(id);
     }
 });
 
