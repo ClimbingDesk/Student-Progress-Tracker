@@ -118,22 +118,33 @@ function createStudentSheet(studentName, observations) {
     const firstDate = observations[observations.length - 1].date;
     const lastDate = observations[0].date;
     
-    const observationsHTML = observations.map(obs => `
-        <div class="observation-item">
+    const observationsHTML = observations.map(
+        (obs) => `
+        <div class="observation-item" data-observation-id="${obs.id}">
             <div class="observation-header">
                 <span class="observation-type ${obs.type}">${obs.type}</span>
                 <span class="observation-date">${formatDate(obs.date)}</span>
             </div>
-            <div class="observation-notes">${escapeHtml(obs.notes)}</div>
+            <label class="visually-hidden" for="note-${obs.id}">Notes for this observation</label>
+            <textarea id="note-${obs.id}" class="observation-notes-input" rows="3" data-observation-id="${obs.id}">${escapeHtml(obs.notes)}</textarea>
+            <button type="button" class="btn-secondary btn-compact sheet-action" data-action="save-note" data-observation-id="${obs.id}">Save note</button>
         </div>
-    `).join('');
+    `
+    ).join('');
     
+    const nameFieldId = `sheet-name-${observations[0].id}`;
     return `
-        <div class="student-sheet" data-student="${escapeHtml(studentName)}">
+        <div class="student-sheet" data-student="${escapeAttr(studentName)}">
             <div class="student-header">
-                <div>
-                    <div class="student-name">${escapeHtml(studentName)}</div>
-                    <div class="observation-count">${totalObs} observation${totalObs !== 1 ? 's' : ''} • ${formatDate(firstDate)} to ${formatDate(lastDate)}</div>
+                <div class="student-name-block">
+                    <label class="visually-hidden" for="${nameFieldId}">Student name</label>
+                    <input type="text" class="student-name-input" id="${nameFieldId}" value="${escapeAttr(
+        studentName
+    )}" data-student-key="${escapeAttr(studentName)}" autocomplete="name" />
+                    <div class="observation-count">${totalObs} observation${
+        totalObs !== 1 ? 's' : ''
+    } • ${formatDate(firstDate)} to ${formatDate(lastDate)}</div>
+                    <button type="button" class="btn-secondary btn-compact sheet-action" data-action="save-student-name">Save name</button>
                 </div>
             </div>
             <div class="observations-list">
@@ -257,6 +268,68 @@ document.getElementById('export-json-btn').addEventListener('click', () => {
     downloadTextFile(json, filename, 'application/json');
 });
 
+function renameStudentInStorage(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+        alert('Please enter a student name.');
+        return;
+    }
+    if (oldName === trimmed) return;
+    const observations = loadObservations();
+    if (observations.some((o) => o.studentName === trimmed && o.studentName !== oldName)) {
+        alert('Another student already has that name. Choose a different name.');
+        return;
+    }
+    const filterEl = document.getElementById('student-filter');
+    const hadThisStudentFilter = filterEl.value === oldName;
+    for (const o of observations) {
+        if (o.studentName === oldName) o.studentName = trimmed;
+    }
+    saveObservations(observations);
+    updateStudentFilter();
+    if (hadThisStudentFilter) {
+        filterEl.value = trimmed;
+    }
+    displayProgressSheets();
+}
+
+function updateObservationNoteById(id, newNotes) {
+    const trimmed = newNotes.trim();
+    if (!trimmed) {
+        alert('Notes cannot be empty.');
+        return;
+    }
+    const numId = Number(id);
+    const observations = loadObservations();
+    const o = observations.find((x) => x.id === numId);
+    if (!o) return;
+    o.notes = trimmed;
+    saveObservations(observations);
+    displayProgressSheets();
+}
+
+document.getElementById('progress-sheets').addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.getAttribute('data-action') === 'save-student-name') {
+        const sheet = t.closest('.student-sheet');
+        if (!sheet) return;
+        const input = sheet.querySelector('.student-name-input');
+        if (!input) return;
+        const oldName = input.getAttribute('data-student-key') || '';
+        renameStudentInStorage(oldName, input.value);
+        return;
+    }
+    if (t.getAttribute('data-action') === 'save-note') {
+        const id = t.getAttribute('data-observation-id');
+        if (!id) return;
+        const item = t.closest('.observation-item');
+        const ta = item ? item.querySelector('.observation-notes-input') : null;
+        if (!ta) return;
+        updateObservationNoteById(id, ta.value);
+    }
+});
+
 // Utility functions
 function formatDate(dateString) {
     const date = new Date(dateString + 'T00:00:00');
@@ -271,6 +344,11 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function escapeAttr(text) {
+    if (text == null) return '';
+    return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 // Initial display
