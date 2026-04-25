@@ -127,7 +127,10 @@ function createStudentSheet(studentName, observations) {
             </div>
             <label class="visually-hidden" for="note-${obs.id}">Notes for this observation</label>
             <textarea id="note-${obs.id}" class="observation-notes-input" rows="3" data-observation-id="${obs.id}">${escapeHtml(obs.notes)}</textarea>
-            <button type="button" class="btn-secondary btn-compact sheet-action" data-action="save-note" data-observation-id="${obs.id}">Save note</button>
+            <div class="observation-item-actions sheet-action">
+                <button type="button" class="btn-secondary btn-compact" data-action="save-note" data-observation-id="${obs.id}">Save note</button>
+                <button type="button" class="btn-secondary btn-compact" data-action="duplicate-note" data-observation-id="${obs.id}">Duplicate note</button>
+            </div>
         </div>
     `
     ).join('');
@@ -308,6 +311,38 @@ function updateObservationNoteById(id, newNotes) {
     displayProgressSheets();
 }
 
+function todayLocalDateString() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate()
+    ).padStart(2, '0')}`;
+}
+
+function duplicateObservationById(id) {
+    const numId = Number(id);
+    const observations = loadObservations();
+    const source = observations.find((x) => x.id === numId);
+    if (!source) return;
+    const item = document.querySelector(`.observation-item[data-observation-id="${numId}"]`);
+    const ta = item && item.querySelector('.observation-notes-input');
+    const notes = (ta ? ta.value : source.notes).trim();
+    if (!notes) {
+        alert('Add some note text before duplicating, or the copy would be empty.');
+        return;
+    }
+    const copy = {
+        id: Date.now(),
+        studentName: source.studentName,
+        date: todayLocalDateString(),
+        type: source.type,
+        notes,
+        timestamp: new Date().toISOString()
+    };
+    observations.push(copy);
+    saveObservations(observations);
+    displayProgressSheets();
+}
+
 document.getElementById('progress-sheets').addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
@@ -327,6 +362,11 @@ document.getElementById('progress-sheets').addEventListener('click', (e) => {
         const ta = item ? item.querySelector('.observation-notes-input') : null;
         if (!ta) return;
         updateObservationNoteById(id, ta.value);
+        return;
+    }
+    if (t.getAttribute('data-action') === 'duplicate-note') {
+        const id = t.getAttribute('data-observation-id');
+        if (id) duplicateObservationById(id);
     }
 });
 
