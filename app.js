@@ -197,6 +197,66 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     }
 });
 
+function downloadTextFile(text, filename, mimeType) {
+    const blob = new Blob([text], { type: mimeType + ';charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function formatExportDateStamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function observationsToCsv(observations) {
+    const header = ['id', 'studentName', 'date', 'type', 'notes', 'timestamp'];
+    const rows = [header];
+    for (const obs of observations) {
+        rows.push(
+            [obs.id, obs.studentName, obs.date, obs.type, obs.notes, obs.timestamp].map(
+                (cell) => csvEscapeField(cell)
+            )
+        );
+    }
+    return rows.map((r) => r.join(',')).join('\r\n');
+}
+
+function csvEscapeField(value) {
+    if (value == null) return '""';
+    const s = String(value);
+    if (/[",\r\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+    const observations = loadObservations();
+    if (observations.length === 0) {
+        alert('No observations to export yet.');
+        return;
+    }
+    const csv = observationsToCsv(observations);
+    const filename = `student-progress-observations-${formatExportDateStamp()}.csv`;
+    downloadTextFile('\ufeff' + csv, filename, 'text/csv');
+});
+
+document.getElementById('export-json-btn').addEventListener('click', () => {
+    const observations = loadObservations();
+    if (observations.length === 0) {
+        alert('No observations to export yet.');
+        return;
+    }
+    const json = JSON.stringify(observations, null, 2);
+    const filename = `student-progress-backup-${formatExportDateStamp()}.json`;
+    downloadTextFile(json, filename, 'application/json');
+});
+
 // Utility functions
 function formatDate(dateString) {
     const date = new Date(dateString + 'T00:00:00');
